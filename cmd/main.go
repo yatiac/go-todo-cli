@@ -1,81 +1,149 @@
 package main
 
 import (
-	"strings"
+	"bufio"
+	"fmt"
+	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/yatiac/go-todo-cli/internal/tui"
+	"github.com/yatiac/go-todo-cli/models"
+	"github.com/yatiac/go-todo-cli/repositories"
+	"github.com/yatiac/go-todo-cli/services"
 )
 
-const (
-	width       = 96
-	columnWidth = 30
-)
-
-type command struct {
-	disabled bool
-	name     string
-}
-
-type model struct {
-	stateDescription string
-	stateStatus      tui.StatusBarState
-	commands         []command
-	cursor           int
-}
-
-func initialModel() model {
-	return model{
-		stateDescription: "Initializing...",
-		commands: []command{
-			{name: "Add Todo", disabled: false},
-			{name: "List Todos", disabled: false},
-			{name: "Complete Todo", disabled: true},
-		},
-	}
-}
-
-func (m model) Init() tea.Cmd {
-	return nil
-}
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
-		case "down", "j":
-			if m.cursor < len(m.commands)-1 {
-				m.cursor++
-			}
-		}
-	}
-	return m, nil
-}
-
-func (m model) View() string {
-	doc := &strings.Builder{}
-	// Footer with commands
-	tui.RenderTitleRow(width, doc, tui.TitleRowProps{Title: "My Todo App"})
-	doc.WriteString("\n\n")
-	doc.WriteString("Press q to quit.\n\n")
-	tui.RenderStatusBar(doc, tui.NewStatusBarProps(&tui.StatusBarProps{
-		Description: m.stateDescription,
-		User:        "NONE",
-		StatusState: tui.StatusBarStateBlue,
-		Width:       width,
-	}))
-	return doc.String()
-}
+var todoRepo = repositories.NewJsonTodoRepository("todos.json")
+var todoService = services.NewTodoService(*todoRepo)
 
 func main() {
-	p := tea.NewProgram(initialModel())
-	if err := p.Start(); err != nil {
-		panic(err)
+	// Display menu of options to the user
+	println("Welcome to Go Todo CLI!")
+	for {
+		printOptions()
+		println("Please enter your choice (1-6):")
+		var choice int
+		_, err := fmt.Scan(&choice)
+		if err != nil {
+			println("Invalid input. Please enter a number between 1 and 6.")
+			clearScreen()
+			continue
+		}
+
+		switch choice {
+		case 1:
+			viewTodos()
+		case 2:
+			addTodo()
+		case 3:
+			toggleTodo()
+		case 4:
+			deleteTodo()
+		case 5:
+			addDescription()
+		case 6:
+			println("Exiting the application. Goodbye!")
+			return
+		default:
+			println("Invalid choice. Please enter a number between 1 and 5.")
+		}
 	}
+}
+
+func viewTodos() {
+	todos, err := todoService.GetAllTodos()
+	if err != nil {
+		println("Error fetching todos:", err.Error())
+		return
+	}
+	if len(*todos) == 0 {
+		println("No todos found.")
+		return
+	}
+	println("Your Todos:")
+	for i, todo := range *todos {
+		status := " "
+		if todo.Completed {
+			status = "x"
+		}
+		fmt.Printf("%d. [%s] %s\n", i, status, todo.Title)
+	}
+}
+func addTodo() {
+	println("Enter todo title:")
+	var title string
+	reader := bufio.NewReader(os.Stdin)
+	title, _ = reader.ReadString('\n')
+	newTodo := &models.Todo{
+		Title:       title,
+		Description: "",
+		Completed:   false,
+	}
+	err := todoService.CreateTodo(newTodo)
+	if err != nil {
+		println("Error adding todo:", err.Error())
+		return
+	}
+	println("Todo added successfully!")
+}
+func toggleTodo() {
+	println("Enter todo ID to toggle completion:")
+	var id int
+	_, err := fmt.Scan(&id)
+	if err != nil {
+		println("Invalid input. Please enter a valid todo ID.")
+		return
+	}
+	err = todoService.ToggleTodo(id)
+	if err != nil {
+		println("Error toggling todo:", err.Error())
+		return
+	}
+	println("Todo toggled successfully!")
+}
+func deleteTodo() {
+	println("Enter todo ID to delete:")
+	var id int
+	_, err := fmt.Scan(&id)
+	if err != nil {
+		println("Invalid input. Please enter a valid todo ID.")
+		return
+	}
+	err = todoService.DeleteTodo(id)
+	if err != nil {
+		println("Error deleting todo:", err.Error())
+		return
+	}
+	println("Todo deleted successfully!")
+}
+
+func addDescription() {
+	println("Enter todo ID to add description:")
+	var id int
+	_, err := fmt.Scan(&id)
+	if err != nil {
+		println("Invalid input. Please enter a valid todo ID.")
+		return
+	}
+	println("Enter description:")
+	var description string
+	reader := bufio.NewReader(os.Stdin)
+	description, _ = reader.ReadString('\n')
+
+	err = todoService.AddDescription(id, description)
+	if err != nil {
+		println("Error adding description:", err.Error())
+		return
+	}
+	println("Description added successfully!")
+}
+
+func printOptions() {
+	println("1. View Todos")
+	println("2. Add Todo")
+	println("3. Toggle Todo Completion")
+	println("4. Delete Todo")
+	println("5. Add Description to Todo")
+	println("6. Exit")
+}
+
+func clearScreen() {
+	fmt.Print("\033[H\033[2J")
 }
