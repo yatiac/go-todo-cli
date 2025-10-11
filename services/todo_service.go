@@ -19,8 +19,8 @@ func (s *TodoService) GetAllTodos() (*[]models.Todo, error) {
 func (s *TodoService) CreateTodo(todo *models.Todo) error {
 	return s.repo.CreateTodo(todo)
 }
-func (s *TodoService) ToggleTodo(id int) error {
-	return s.repo.ToggleTodo(id)
+func (s *TodoService) ChangeStatus(status models.TodoStatus, id int) error {
+	return s.repo.ChangeStatus(status, id)
 }
 func (s *TodoService) DeleteTodo(id int) error {
 	return s.repo.DeleteTodo(id)

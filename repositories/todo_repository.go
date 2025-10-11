@@ -41,12 +41,13 @@ func (r *JsonTodoRepository) CreateTodo(todo *models.Todo) error {
 	*r.todos = append(*r.todos, *todo)
 	return r.saveTodos()
 }
-func (r *JsonTodoRepository) ToggleTodo(id int) error {
+
+func (r *JsonTodoRepository) ChangeStatus(status models.TodoStatus, id int) error {
 	if id < 0 || id >= len(*r.todos) {
 		fmt.Println("Todo not found")
 		return nil
 	}
-	(*r.todos)[id].Completed = !(*r.todos)[id].Completed
+	(*r.todos)[id].Status = status.String()
 	return r.saveTodos()
 }
 

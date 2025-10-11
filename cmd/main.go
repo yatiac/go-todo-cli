@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/yatiac/go-todo-cli/models"
 	"github.com/yatiac/go-todo-cli/repositories"
@@ -33,7 +34,7 @@ func main() {
 		case 2:
 			addTodo()
 		case 3:
-			toggleTodo()
+			changeStatus()
 		case 4:
 			deleteTodo()
 		case 5:
@@ -60,10 +61,15 @@ func viewTodos() {
 	println("Your Todos:")
 	for i, todo := range *todos {
 		status := " "
-		if todo.Completed {
+		switch todo.Status {
+		case models.Pending.String():
+			status = " "
+		case models.InProgress.String():
+			status = "~"
+		case models.Completed.String():
 			status = "x"
 		}
-		fmt.Printf("%d. [%s] %s\n", i, status, todo.Title)
+		fmt.Printf("%d. [%s] %s (%s)\n", i, status, todo.Title, todo.Description)
 	}
 }
 func addTodo() {
@@ -74,7 +80,7 @@ func addTodo() {
 	newTodo := &models.Todo{
 		Title:       title,
 		Description: "",
-		Completed:   false,
+		Status:      models.Pending.String(),
 	}
 	err := todoService.CreateTodo(newTodo)
 	if err != nil {
@@ -83,20 +89,27 @@ func addTodo() {
 	}
 	println("Todo added successfully!")
 }
-func toggleTodo() {
-	println("Enter todo ID to toggle completion:")
+func changeStatus() {
+	println("Enter todo ID to change status:")
 	var id int
 	_, err := fmt.Scan(&id)
 	if err != nil {
 		println("Invalid input. Please enter a valid todo ID.")
 		return
 	}
-	err = todoService.ToggleTodo(id)
-	if err != nil {
-		println("Error toggling todo:", err.Error())
+	println("Enter new status. 0 = Pending, 1 = In Progress, 2 = Completed")
+	var status int
+	_, err = fmt.Scan(&status)
+	if err != nil || status < 0 || status > 2 {
+		println("Invalid status. Please enter 0, 1, or 2.")
 		return
 	}
-	println("Todo toggled successfully!")
+	err = todoService.ChangeStatus(models.TodoStatus(status), id)
+	if err != nil {
+		println("Error changing todo status:", err.Error())
+		return
+	}
+	println("Todo status changed successfully!")
 }
 func deleteTodo() {
 	println("Enter todo ID to delete:")
@@ -126,7 +139,7 @@ func addDescription() {
 	var description string
 	reader := bufio.NewReader(os.Stdin)
 	description, _ = reader.ReadString('\n')
-
+	description = strings.TrimSuffix(description, "\n")
 	err = todoService.AddDescription(id, description)
 	if err != nil {
 		println("Error adding description:", err.Error())
@@ -138,7 +151,7 @@ func addDescription() {
 func printOptions() {
 	println("1. View Todos")
 	println("2. Add Todo")
-	println("3. Toggle Todo Completion")
+	println("3. Change Todo Status")
 	println("4. Delete Todo")
 	println("5. Add Description to Todo")
 	println("6. Exit")
